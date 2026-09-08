@@ -68,7 +68,7 @@ function App() {
             .then((streamUrl) => {
               if (typeof streamUrl === 'string' && streamUrl) {
                 setActiveStation({ ...firstStation, stream: secureStreamUrl(streamUrl) })
-                setIsPlaying(true)
+                setIsPlaying(false)
               }
             })
         }
@@ -109,7 +109,7 @@ function App() {
     setIsPlaying(false)
     const response = await fetch('/api/shoutcast/stream', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `station=${encodeURIComponent(station.id)}` })
     const streamUrl = await response.json()
-    if (typeof streamUrl === 'string' && streamUrl) { setActiveStation({ ...station, stream: secureStreamUrl(streamUrl) }); setIsPlaying(true) }
+    if (typeof streamUrl === 'string' && streamUrl) { setActiveStation({ ...station, stream: secureStreamUrl(streamUrl) }); setIsPlaying(false) }
   }
   const selectTrack = (track: LocalTrack) => { setCurrentTrack(track); setIsPlaying(true) }
   const addFiles = (files: FileList | null) => { if (!files?.length) return; const tracks = Array.from(files).filter((file) => file.type.startsWith('audio/')).map((file) => ({ name: file.name.replace(/\.[^/.]+$/, ''), url: URL.createObjectURL(file), size: `${(file.size / 1024 / 1024).toFixed(1)} MB` })); setLocalTracks((current) => [...current, ...tracks]); if (tracks[0]) selectTrack(tracks[0]) }
