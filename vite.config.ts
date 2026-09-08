@@ -5,6 +5,7 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react()],
   server: {
+    allowedHosts: true,
     proxy: {
       '/api/remote-skins': {
         target: 'https://HQ9I5Z6IM5-dsn.algolia.net',

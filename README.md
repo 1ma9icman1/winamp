@@ -1,32 +1,38 @@
-# React + TypeScript + Vite
+# RadioCore
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Compact Winamp-inspired Shoutcast player with remote skins, local MP3 support, voice search, and Discord Embedded App support.
 
-Currently, two official plugins are available:
+## Run locally
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```powershell
+npm install
+npm run dev -- --host 127.0.0.1
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Discord Activity setup
+
+1. Create an application at https://discord.com/developers/applications.
+2. Copy its **Application ID**.
+3. Create a local `.env.local` file:
+
+```text
+VITE_DISCORD_CLIENT_ID=your_application_id
+```
+
+4. Deploy the built app at a public HTTPS URL. A temporary local option is:
+
+```powershell
+npm run dev -- --host 127.0.0.1
+cloudflared tunnel --url http://127.0.0.1:5173
+```
+
+5. In the Discord Developer Portal, add the public URL under the Activity URL mapping / deployment settings.
+6. Install the Activity to a test server and launch it from Discord.
+
+The app still runs normally in a browser when no Discord client ID is configured.
+
+## Build
+
+```powershell
+npm run build
+```
