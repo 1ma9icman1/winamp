@@ -10,7 +10,7 @@ type RemoteSkin = { name: string; url: string; hash: string }
 const stationAccents = ['#e0ff4f', '#71f6d2', '#c4a7ff', '#ff6b9d', '#ffb86b']
 
 function secureStreamUrl(url: string) {
-  return url.replace(/^http:\/\//i, 'https://')
+  return url.replace(/^http:\/\//i, 'https://').replace(/^(https:\/\/[^/]+):80\b/i, '$1')
 }
 
 function formatTime(seconds: number) {
