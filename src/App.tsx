@@ -36,6 +36,7 @@ function App() {
   const [volume, setVolume] = useState(0.72)
   const [elapsed, setElapsed] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [playbackError, setPlaybackError] = useState('')
   const skin = 'acid'
   const [showSkinCatalog, setShowSkinCatalog] = useState(false)
   const [showWebamp, setShowWebamp] = useState(false)
@@ -102,7 +103,21 @@ function App() {
   }, [showSkinCatalog, remoteSkins.length])
   useEffect(() => () => { webampRef.current?.dispose(); if (skinObjectUrlRef.current) URL.revokeObjectURL(skinObjectUrlRef.current) }, [])
 
-  const togglePlayback = () => { const audio = audioRef.current; if (!audio) return; if (isPlaying) { audio.pause(); setIsPlaying(false) } else audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false)) }
+  const togglePlayback = async () => {
+    const audio = audioRef.current
+    const source = currentTrack?.url || activeStation?.stream
+    if (!audio || !source) return
+    if (isPlaying) { audio.pause(); setIsPlaying(false); return }
+    setPlaybackError('')
+    if (audio.src !== source) { audio.src = source; audio.load() }
+    try {
+      await audio.play()
+      setIsPlaying(true)
+    } catch {
+      setIsPlaying(false)
+      setPlaybackError('LIVE STREAM COULD NOT START. TRY ANOTHER STATION.')
+    }
+  }
   const selectStation = async (station: Station) => {
     setCurrentTrack(null)
     setActiveStation(station)
@@ -133,7 +148,7 @@ function App() {
 
   return <main className={`app-shell skin-${skin}`}>
     {showWebamp && <div className="webamp-stage"><div className="webamp-toolbar"><span>REMOTE SKIN // {selectedRemoteSkin?.name}</span><button onClick={() => setShowWebamp(false)}>RETURN TO RADIOCORE</button></div><div className="webamp-host" ref={webampHostRef} /></div>}
-    <audio ref={audioRef} onTimeUpdate={(event) => setElapsed(event.currentTarget.currentTime)} onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)} onEnded={() => setIsPlaying(false)} />
+    <audio ref={audioRef} preload="none" onTimeUpdate={(event) => setElapsed(event.currentTarget.currentTime)} onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)} onError={() => { setIsPlaying(false); setPlaybackError('LIVE STREAM COULD NOT LOAD. TRY ANOTHER STATION.') }} onEnded={() => setIsPlaying(false)} />
     <section className="player-window">
       <header className="title-bar"><div className="brand-mark"><Disc3 size={18} /><span>W3</span></div><div className="window-title">WINAMP // RADIOCORE <span>v3.0.7</span></div><div className="window-actions"><button aria-label="Minimize"><Moon size={13} /></button><button aria-label="Close"><X size={14} /></button></div></header>
       <div className="now-playing"><div className="art-orb" style={{ '--accent': activeStation?.accent || '#e0ff4f' } as React.CSSProperties}><Waves size={43} strokeWidth={1.2} /></div><div className="track-info"><p className="eyebrow"><span className="live-dot" /> {currentTrack ? 'LOCAL FILE' : 'LIVE BROADCAST'}</p><h1>{title}</h1><p>{subtitle}</p><div className="meter">{Array.from({ length: 12 }, (_, index) => <i key={index} />)}</div></div><div className="clock"><span>TIME</span>{formatTime(elapsed)}</div></div>
@@ -141,7 +156,7 @@ function App() {
       <div className="transport"><button aria-label="Previous station"><SkipBack size={15} /></button><button className="play-button" aria-label={isPlaying ? 'Pause' : 'Play'} onClick={togglePlayback}>{isPlaying ? <Pause size={18} /> : <Play size={18} fill="currentColor" />}</button><button aria-label="Next station" onClick={() => { if (stations.length) selectStation(stations[(stations.findIndex((station) => station.id === activeStation?.id) + 1) % stations.length]) }}><SkipForward size={15} /></button><div className="volume-control"><button aria-label="Mute" onClick={() => setMuted(!muted)}>{muted ? <VolumeX size={14} /> : <Volume2 size={14} />}</button><input aria-label="Volume" type="range" min="0" max="1" step="0.01" value={muted ? 0 : volume} onChange={(event) => { setMuted(false); setVolume(Number(event.target.value)) }} /></div><span className="stereo">STEREO <b>●</b></span></div>
       <nav className="source-tabs"><button className={activeTab === 'stations' ? 'active' : ''} onClick={() => setActiveTab('stations')}><Radio size={14} /> LIVE STATIONS <span>{stations.length}</span></button><button className={activeTab === 'library' ? 'active' : ''} onClick={() => setActiveTab('library')}><ListMusic size={14} /> LOCAL LIBRARY <span>{localTracks.length}</span></button></nav>
       <div className="search-row"><div className="search-box"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search the airwaves..." /><button aria-label="Voice search" className={isListening ? 'listening' : ''} onClick={startVoiceSearch}><Mic size={15} /></button></div><button className="skin-button" onClick={() => setShowSkinCatalog(true)}><Sparkles size={14} /> SKINS</button></div>
-      <div className="content-list">{activeTab === 'stations' ? (stationsLoading ? <p className="catalog-status">PULLING LIVE SHOUTCAST STATIONS...</p> : filteredStations.map((station) => <button className={`station-row ${activeStation?.id === station.id && !currentTrack ? 'selected' : ''}`} key={station.id} onClick={() => selectStation(station)}><span className="station-icon" style={{ '--accent': station.accent } as React.CSSProperties}><Radio size={16} /></span><span className="station-name"><strong>{station.name}</strong><small>{station.genre} <em>•</em> {station.location}</small></span><span className="listeners"><i /> {station.listeners}</span><span className="row-arrow">↗</span></button>)) : <>{filteredTracks.length ? filteredTracks.map((track) => <button className={`station-row ${currentTrack?.name === track.name ? 'selected' : ''}`} key={track.url} onClick={() => selectTrack(track)}><span className="station-icon local"><FolderOpen size={16} /></span><span className="station-name"><strong>{track.name}</strong><small>{track.size} <em>•</em> MP3 AUDIO</small></span><span className="row-arrow">↗</span></button>) : <div className="empty-library"><FolderOpen size={24} /><p>Your local library is quiet.</p><button onClick={() => fileInputRef.current?.click()}>ADD MP3 FILES</button></div>}</>}</div>
+      <div className="content-list">{activeTab === 'stations' ? (stationsLoading ? <p className="catalog-status">PULLING LIVE SHOUTCAST STATIONS...</p> : filteredStations.map((station) => <button className={`station-row ${activeStation?.id === station.id && !currentTrack ? 'selected' : ''}`} key={station.id} onClick={() => selectStation(station)}><span className="station-icon" style={{ '--accent': station.accent } as React.CSSProperties}><Radio size={16} /></span><span className="station-name"><strong>{station.name}</strong><small>{station.genre} <em>•</em> {station.location}</small></span><span className="listeners"><i /> {station.listeners}</span><span className="row-arrow">↗</span></button>)) : <>{filteredTracks.length ? filteredTracks.map((track) => <button className={`station-row ${currentTrack?.name === track.name ? 'selected' : ''}`} key={track.url} onClick={() => selectTrack(track)}><span className="station-icon local"><FolderOpen size={16} /></span><span className="station-name"><strong>{track.name}</strong><small>{track.size} <em>•</em> MP3 AUDIO</small></span><span className="row-arrow">↗</span></button>) : <div className="empty-library"><FolderOpen size={24} /><p>Your local library is quiet.</p><button onClick={() => fileInputRef.current?.click()}>ADD MP3 FILES</button></div>}</>}</div>{playbackError && <p className="catalog-status">{playbackError}</p>}
       <footer className="player-footer"><span>RADIOCORE ENGINE <b>ONLINE</b></span><button onClick={() => fileInputRef.current?.click()}><FolderOpen size={13} /> ADD LOCAL MP3</button><input ref={fileInputRef} type="file" accept="audio/*" multiple hidden onChange={(event) => addFiles(event.target.files)} /><span>CPU 0.4% / 128 MB</span></footer>
     </section><p className="outside-label">WINAMP 3 // THE FUTURE OF MUSIC, RECOMPILED</p>
     {showSkinCatalog && <div className="skin-overlay" role="dialog" aria-modal="true" aria-label="Webamp skin catalog"><div className="skin-modal"><header><div><span className="eyebrow">REMOTE CATALOG</span><h2>WEBAMP SKINS <small>{remoteSkins.length ? `// ${remoteSkins.length} LOADED` : ''}</small></h2></div><button aria-label="Close skin catalog" onClick={() => setShowSkinCatalog(false)}><X size={17} /></button></header><div className="remote-skin-list">{skinsLoading && <p className="catalog-status">PULLING LIVE CATALOG...</p>}{skinError && <p className="catalog-status">{skinError}</p>}{remoteSkins.map((remoteSkin) => <button key={remoteSkin.url} onClick={() => applyRemoteSkin(remoteSkin)}><span className="skin-swatch" /><span>{remoteSkin.name}</span><b>APPLY TO AMP</b></button>)}</div><footer><span>LIVE FROM SKINS.WEBAMP.ORG</span><a href="https://skins.webamp.org/" target="_blank" rel="noreferrer">OPEN FULL CATALOG ↗</a></footer></div></div>}
