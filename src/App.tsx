@@ -9,6 +9,10 @@ type RemoteSkin = { name: string; url: string; hash: string }
 
 const stationAccents = ['#e0ff4f', '#71f6d2', '#c4a7ff', '#ff6b9d', '#ffb86b']
 
+function secureStreamUrl(url: string) {
+  return url.replace(/^http:\/\//i, 'https://')
+}
+
 function formatTime(seconds: number) {
   if (!Number.isFinite(seconds)) return '00:00'
   return `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`
@@ -63,7 +67,7 @@ function App() {
             .then((streamResponse) => streamResponse.json())
             .then((streamUrl) => {
               if (typeof streamUrl === 'string' && streamUrl) {
-                setActiveStation({ ...firstStation, stream: streamUrl })
+                setActiveStation({ ...firstStation, stream: secureStreamUrl(streamUrl) })
                 setIsPlaying(true)
               }
             })
@@ -105,7 +109,7 @@ function App() {
     setIsPlaying(false)
     const response = await fetch('/api/shoutcast/stream', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `station=${encodeURIComponent(station.id)}` })
     const streamUrl = await response.json()
-    if (typeof streamUrl === 'string' && streamUrl) { setActiveStation({ ...station, stream: streamUrl }); setIsPlaying(true) }
+    if (typeof streamUrl === 'string' && streamUrl) { setActiveStation({ ...station, stream: secureStreamUrl(streamUrl) }); setIsPlaying(true) }
   }
   const selectTrack = (track: LocalTrack) => { setCurrentTrack(track); setIsPlaying(true) }
   const addFiles = (files: FileList | null) => { if (!files?.length) return; const tracks = Array.from(files).filter((file) => file.type.startsWith('audio/')).map((file) => ({ name: file.name.replace(/\.[^/.]+$/, ''), url: URL.createObjectURL(file), size: `${(file.size / 1024 / 1024).toFixed(1)} MB` })); setLocalTracks((current) => [...current, ...tracks]); if (tracks[0]) selectTrack(tracks[0]) }
