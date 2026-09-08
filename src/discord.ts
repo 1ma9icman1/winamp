@@ -3,7 +3,7 @@ import { DiscordSDK } from '@discord/embedded-app-sdk'
 export type DiscordActivityStatus = 'standalone' | 'connected' | 'unavailable'
 
 export async function initializeDiscordActivity(): Promise<DiscordActivityStatus> {
-  const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID
+  const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID || '1546720899632210045'
   const isEmbedded = window.parent !== window
 
   if (!isEmbedded || !clientId) return 'standalone'
