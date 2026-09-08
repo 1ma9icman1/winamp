@@ -1,7 +1,6 @@
-export default async function handler(request: Request, context: { params: { hash: string } }) {
-  const response = await fetch(`https://r2.webampskins.org/skins/${encodeURIComponent(context.params.hash)}.wsz`)
-  return new Response(response.body, {
-    status: response.status,
-    headers: { 'Content-Type': response.headers.get('Content-Type') || 'application/octet-stream' },
-  })
+export default async function handler(request: any, response: any) {
+  const hash = request.query.hash
+  const upstream = await fetch(`https://r2.webampskins.org/skins/${encodeURIComponent(hash)}.wsz`)
+  response.status(upstream.status).setHeader('Content-Type', upstream.headers.get('Content-Type') || 'application/octet-stream')
+  response.send(Buffer.from(await upstream.arrayBuffer()))
 }
