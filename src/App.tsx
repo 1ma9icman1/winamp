@@ -9,8 +9,10 @@ type RemoteSkin = { name: string; url: string; hash: string }
 
 const stationAccents = ['#e0ff4f', '#71f6d2', '#c4a7ff', '#ff6b9d', '#ffb86b']
 
-function secureStreamUrl(url: string) {
-  return url.replace(/^http:\/\//i, 'https://').replace(/^(https:\/\/[^/]+):80\b/i, '$1')
+function toPlayableStreamUrl(url: string) {
+  if (!url) return ''
+  if (url.startsWith('blob:')) return url
+  return `/api/proxy-stream?url=${encodeURIComponent(url)}`
 }
 
 function formatTime(seconds: number) {
@@ -52,7 +54,19 @@ function App() {
   const subtitle = currentTrack ? 'LOCAL MP3' : activeStation ? `${activeStation.genre.toUpperCase()} / SHOUTCAST DIRECTORY` : 'CONNECTING TO SHOUTCAST'
 
   useEffect(() => { const audio = audioRef.current; if (audio) { audio.volume = volume; audio.muted = muted } }, [volume, muted])
-  useEffect(() => { const audio = audioRef.current; if (!audio || (!currentTrack && !activeStation?.stream)) return; audio.src = currentTrack?.url || activeStation?.stream || ''; audio.load(); if (isPlaying) audio.play().catch(() => setIsPlaying(false)) }, [activeStation, currentTrack])
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio || (!currentTrack && !activeStation?.stream)) return
+    const src = currentTrack?.url || activeStation?.stream || ''
+    if (audio.src !== src) {
+      audio.src = src
+      audio.load()
+      if (isPlaying) {
+        audio.play().catch(() => setIsPlaying(false))
+      }
+    }
+  }, [activeStation, currentTrack])
+
   useEffect(() => {
     const endpoint = query.trim() ? '/api/shoutcast/search' : '/api/shoutcast/top'
     const body = query.trim() ? `query=${encodeURIComponent(query.trim())}` : ''
@@ -68,10 +82,10 @@ function App() {
             .then((streamResponse) => streamResponse.json())
             .then((streamUrl) => {
               if (typeof streamUrl === 'string' && streamUrl) {
-                setActiveStation({ ...firstStation, stream: secureStreamUrl(streamUrl) })
-                setIsPlaying(false)
+                setActiveStation({ ...firstStation, stream: toPlayableStreamUrl(streamUrl) })
               }
             })
+            .catch(() => {})
         }
       })
       .catch(() => setStations([]))
@@ -120,11 +134,29 @@ function App() {
   }
   const selectStation = async (station: Station) => {
     setCurrentTrack(null)
-    setActiveStation(station)
-    setIsPlaying(false)
-    const response = await fetch('/api/shoutcast/stream', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `station=${encodeURIComponent(station.id)}` })
-    const streamUrl = await response.json()
-    if (typeof streamUrl === 'string' && streamUrl) { setActiveStation({ ...station, stream: secureStreamUrl(streamUrl) }); setIsPlaying(false) }
+    setPlaybackError('')
+    try {
+      const response = await fetch('/api/shoutcast/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `station=${encodeURIComponent(station.id)}`,
+      })
+      const streamUrl = await response.json()
+      if (typeof streamUrl === 'string' && streamUrl) {
+        const playableUrl = toPlayableStreamUrl(streamUrl)
+        setActiveStation({ ...station, stream: playableUrl })
+        setIsPlaying(true)
+        if (audioRef.current) {
+          audioRef.current.src = playableUrl
+          audioRef.current.load()
+          await audioRef.current.play()
+        }
+      }
+    } catch (err) {
+      console.warn('Station play error:', err)
+      setIsPlaying(false)
+      setPlaybackError('LIVE STREAM COULD NOT START. TRY ANOTHER STATION.')
+    }
   }
   const selectTrack = (track: LocalTrack) => { setCurrentTrack(track); setIsPlaying(true) }
   const addFiles = (files: FileList | null) => { if (!files?.length) return; const tracks = Array.from(files).filter((file) => file.type.startsWith('audio/')).map((file) => ({ name: file.name.replace(/\.[^/.]+$/, ''), url: URL.createObjectURL(file), size: `${(file.size / 1024 / 1024).toFixed(1)} MB` })); setLocalTracks((current) => [...current, ...tracks]); if (tracks[0]) selectTrack(tracks[0]) }
